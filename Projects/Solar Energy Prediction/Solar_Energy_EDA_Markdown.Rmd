@@ -1,0 +1,255 @@
+---
+title: "Solar Energy Project"
+author: "William Kingwill"
+date: "16/07/2020"
+output:
+  html_document:
+    fig_caption: yes
+    toc: yes # table of contents
+    toc_float: yes # floating table of contents
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(Include = TRUE, echo = FALSE, eval = TRUE)
+library(DataExplorer)
+library(data.table)
+library(ggplot2)
+library(knitr) 
+library(kableExtra)
+library(dplyr)
+library(leaflet)
+```
+
+## <span style = "color: blue;">Introduction</span>
+
+The aim of this project is to creste a statistical or machine learning technique in order to provide a short term prediction of solar production. The prediction will be done over 98 **Oklahoma Mesonet** sites which serve as solar farms. First a exploratory data analysis will be done on the data sets provided. Then a model will be built and predicitons created. The evaluation of the predicitons will be done using the MAE:
+                 $MAE = 1/SE \sum_{s}^{S}\sum_{e}^{E} |Fse - Ose|$
+                 
+                 
+## <span style = "color: blue;">Data Exploratory Analysis</span>
+
+There were 3 data files provided for this project: 
+
+* *solar_dataset*. Containing solar predicitons from 1992-01-01 to 2012-11-30 with different weather predictions
+* *station_info*. Containing the longitude, latitude and altitude of the stations
+* *additional_variables*. Containing additional Real Numerical Weather Prediction values
+
+```{r}
+#Create folder path
+folder_path <- "C:/Users/Eric/OneDrive/IE/Term 1/R/Solar Energy Prediction/"
+
+#load data sets
+solar_dataset <- readRDS(file.path(folder_path, "solar_dataset.RData"));
+additional_variables <- readRDS(file.path(folder_path, "additional_variables.RData"));
+station_info <- fread(file.path(folder_path, "station_info.csv"))
+
+# split data set  
+train1 <- head(solar_dataset,5113)
+pred_test <- solar_dataset[5114:6909,]
+```
+
+
+### <span style = "color: blue;">Dimensions</span>
+
+* The dimensions of *solar_dataset* are `r nrow(solar_dataset)` x `r ncol(solar_dataset)` 
+* The dimensions of *stations_info* are `r nrow(station_info)` x `r ncol(station_info)` 
+* The dimensions of *additional_variables* are `r nrow(additional_variables)` x `r ncol(additional_variables)` 
+
+As the last 1796 rows of the *solar_dataset* contain Null values in the first 98 columns to make the predicitons over. This was split into the test set *pred_test* and the dataset used for training *train1*. 
+
+* The dimensions of *pred_test* are `r nrow(pred_test)` x `r ncol(pred_test)` 
+* The dimensions of *train1* are `r nrow(train1)` x `r ncol(train1)` 
+
+
+
+### <span style = "color: blue;">Overview plots</span>
+To gain a overview of the datasets, the amount of discrete columns, continuous columns, missing coloumns, complete rows and missing observations were plotted.
+
+
+
+```{r}
+#plot basic description of data set
+plot_intro(solar_dataset, title = "Overview for solar_dataset")
+plot_intro(train1, title = "Overview for train1")
+
+plot_intro(station_info, title = "Overview for station_info")
+plot_intro(additional_variables, title = "Overview for additional_variables")
+```
+
+### <span style = "color: blue;">Column Statistics</span>
+The statistics were computed for each column of the *solar_dataset* and the *additional_variables* datasets. Was not nesicary for the *stations_info* dataset. 
+
+For the *solar_dataset*, as there are 456 coloumns in the solar_dataset the Stattistics of only a few are shown in this report to get a overview.
+```{r}
+Train_summary <- as.data.frame(sapply(train1[ ,-1], summary))
+kable(Train_summary,format = "html", caption = "Column ", ggtheme = theme_classic())%>%
+  kable_styling() %>%
+  scroll_box(width = "600px",  height = "300px") 
+
+
+```
+
+
+
+
+
+
+
+The *additional_variables* statistical summary is shown: 
+
+```{r}
+additional_summary <- as.data.frame(sapply(additional_variables[ ,-1], summary))
+kable(additional_summary,format = "html", caption = "Percentage Null values for additional_variables", ggtheme = theme_classic())%>%
+  kable_styling() %>%
+  scroll_box(width = "600px",  height = "400px") 
+```
+
+
+
+### <span style = "color: blue;">Distributions</span>
+The distributions of the variables in  *solar_dataset*  were investigated. As there are  456 coloumns in the *solar_dataset* the distributions of only a few are shown in this report. It can be seen that all the weather measurment variables (PC) show a normal distribution. While the solar output a the **Oklahoma Mesonet** sites have varying distributions. 
+
+
+```{r}
+df_solar <- as.data.frame(solar_dataset)
+plot_histogram(df_solar[, c("ADAX","BUFF","GUTH", "HOOK", "STUA", "SULP","PC1","PC10","PC40","PC80", "PC120","PC160", "PC200", "PC240","PC280","PC300", "PC340", "PC350")], nrow = 3,ncol = 3)  + scale_colour_brewer(palette = "YlOrRd")
+```
+
+### <span style = "color: blue;">Box Plots</span>
+We look at the box plots of the variables to get a better understanding of their distributions. As above only a few are displayed in this report for an overview. It can be seen that
+
+```{r}
+  ### Plot box plot 
+  par(mfrow=c(2,2))
+  boxplot(train1$ACME, main = "ACME")
+  boxplot(train1$BUFF, main = "BUFF")
+  boxplot(train1$GUTH, main = "GUTH")
+  boxplot(train1$HOOK, main = "HOOK")
+  boxplot(train1$STUA, main = "STUA")
+  boxplot(train1$SULP, main = "SULP")
+  boxplot(train1$PC1, main = "PC1")
+  boxplot(train1$PC10, main = "PC10")
+  boxplot(train1$PC40, main = "PC40")
+  boxplot(train1$PC80, main = "PC80")
+  boxplot(train1$PC120, main = "PC120")
+  boxplot(train1$PC160, main = "PC160")
+  boxplot(train1$PC200, main = "PC200")
+  boxplot(train1$PC240, main = "PC240")
+  boxplot(train1$PC280, main = "PC280")
+  boxplot(train1$PC300, main = "PC300")
+  boxplot(train1$PC340, main = "PC340")
+  boxplot(train1$PC350, main = "PC350")
+```
+
+### <span style = "color: blue;">Average Solar Production</span>
+
+It may be interesting to see the average solar production over time. As expected one can clearly see that the solar production foloows a seasonal profile. 
+
+
+```{r}
+### Plot of average solar production over time
+
+dt_train1_solar_avg <- as.data.table(train1[,1:99])
+dt_train1_solar_avg$AvgSolar <- rowMeans(dt_train1_solar_avg[ ,2:99])
+dt_train1_solar_avg <- dt_train1_solar_avg[, c("Date", "AvgSolar")]
+
+dt_train1_solar_avg$Date <- as.Date(dt_train1_solar_avg$Date, format = "%Y%m%d")
+
+
+solar_avg_plot <- ggplot(dt_train1_solar_avg, aes(x = Date, y = AvgSolar))+
+  geom_line() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") 
+  
+  solar_avg_plot <- solar_avg_plot +   scale_colour_brewer(palette = "YlOrRd")
+  print(solar_avg_plot)
+```
+
+
+### <span style = "color: blue;">NULL Values</span>
+
+From the overview plots it is seen that *solar_dataset* and *additional_variables* contain null values. The null values in *solar_dataset* are the values that need to be predicted so can be ignored. The null values in *additional_variables* needs to be explored further. 
+
+The total Null values in each column are calculated: 
+```{r}
+#Calc null values in each column
+additional_null <- as.data.frame(sapply(additional_variables, function(x){sum(is.na(x))}));
+names(additional_null) <- "No. Null Values"
+kable(additional_null,format = "html", caption = "Null values for additional_variables", ggtheme = theme_classic())%>%
+  kable_styling() %>%
+  scroll_box(width = "400px",  height = "600px") 
+```
+
+
+
+It is clear that many null values in the additional variables table. The percentage of nulls in each variable is calculated to see if any columns need to be discarderd. No variables are found to have large percentage nulls so no coloumns are discarded. 
+
+
+```{r, echo = FALSE, results='asis'}
+null_feq <- sapply(additional_variables, function(x){100*sum(is.na(x))/length(x)});
+kable(null_feq,format = "html", caption = "Percentage Null values for additional_variables", ggtheme = theme_classic())%>%
+  kable_styling() %>%
+  scroll_box(width = "400px",  height = "600px") 
+```
+
+To handle the Null values, the mean is used to be inputed as per the following code:
+
+```{r  echo = TRUE}
+###Fill missing values with mean
+fill_missing_values <- function(x){
+  if (class(x) == "numeric" ){
+    x[is.na(x)] <- mean(x, na.rm = TRUE); # Replace with mean
+  } else {
+    
+  }
+  return(x);
+}
+
+additional_variables <- data.frame(sapply(additional_variables, fill_missing_values));
+
+```
+
+
+From the ovewiew we can see all null values have been handled:
+
+
+```{r}
+plot_intro(additional_variables, title = "Overview for additional_variables")
+```
+
+
+
+
+### <span style = "color: blue;">Map of **Oklahoma Mesonet** sites </span>
+
+To explore the data of *stations_info* a interactive map of the locations of all the 98 different weather stations was created. 
+
+```{r}
+stations <- as.data.frame(station_info)
+
+m = leaflet() %>% addTiles() %>% addMarkers(lng = stations$elon, lat = stations$nlat, label = stations$stid)
+m
+
+```
+
+
+
+## <span style = "color: blue;">Feature extraction </span>
+
+In order to help with the forcasting it was decided to extract features from the dates: DayofYear and MonthofYear. As shown in the following code:
+
+```{r   echo = TRUE, eval = FALSE}
+###Extract features from Dates, dayofyear, monthofyear
+solar_dataset_pred <- as.data.frame(solar_dataset)
+solar_dataset_pred$Date <- as.Date(solar_dataset_pred$Date, format = "%Y%m%d")
+solar_dataset_pred<- mutate(solar_dataset_pred, DayofYear = yday(solar_dataset_pred$Date))
+solar_dataset_pred <- mutate(solar_dataset_pred, MonthofYear = month(solar_dataset_pred$Date))
+```
+
+
+
+## <span style = "color: blue;">Conclusion </span>
+
+A full data analysis was conducted to get a good general overview of the data. Null values were delt with. No outlier handling, dimensionality reduction or data scaling were needed for the model. As PCA had already been done on the variables included no correlation testing was deemed nessicary for this report
+
+
